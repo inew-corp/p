@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>분양 안내</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Malgun Gothic",-apple-system,sans-serif;background:#f4f6fa;color:#1b2330;line-height:1.6}
+.wrap{max-width:430px;margin:0 auto;background:#fff;min-height:100vh}
+.hero{background:linear-gradient(135deg,#2E75B6,#1F4E79);color:#fff;padding:34px 22px 26px}
+.hero .c{font-size:13px;opacity:.9}.hero h1{font-size:23px;margin:6px 0 2px}.hero p{font-size:14px;opacity:.95}
+.sec{padding:18px 22px;border-bottom:8px solid #f4f6fa}.sec h2{font-size:15px;color:#1F4E79;margin-bottom:10px}
+.spec{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #eef1f6;font-size:14px}
+.spec span{color:#6b7686;flex:none}.spec b{color:#1F4E79;text-align:right}
+.pt{background:#E8F1FA;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px;font-weight:700;color:#1F4E79}
+.etc{background:#fff7db;border-radius:10px;padding:12px 14px;font-size:13px}
+.cta{padding:18px 22px 30px;display:grid;gap:10px}
+.cta a{display:block;text-align:center;padding:14px;border-radius:12px;font-weight:800;text-decoration:none;font-size:15px}
+.call{background:#1F4E79;color:#fff}.kko{background:#FEE500;color:#3c1e1e}.opc{background:#fff;color:#1F4E79;border:2px solid #1F4E79}
+.foot{padding:0 22px 34px;font-size:12px;color:#6b7686;text-align:center}
+.err{padding:60px 24px;text-align:center;color:#6b7686}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="err">불러오는 중…</div></div>
+<script>
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function ub64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);return u8;}
+async function unpack(hash){
+  const m=hash.replace(/^#/,''); const dot=m.indexOf('.');
+  if(dot<0) throw new Error('형식 오류');
+  const mode=m.slice(0,dot); let bytes=ub64(m.slice(dot+1));
+  if(mode==='1'){
+    const ds=new DecompressionStream('deflate-raw');
+    bytes=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer());
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+function render(d){
+  const w = (d.t||'').indexOf('데이터센터')>=0 ? '임대' : '분양';
+  document.title=(d.n||'분양 안내')+' '+w+' 안내';
+  const specs=[['위치',d.l],['면적',d.s],[w==='임대'?'임대료':'분양가',d.p],['입주',d.m]].filter(x=>x[1]);
+  const ks=(d.k||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const tel=(d.tel||'').replace(/[^0-9+]/g,'');
+  let h='<div class="hero"><div class="c">'+esc(d.c||'지금 확인하세요')+'</div><h1>'+esc(d.n)+'</h1><p>'+esc(d.t)+' '+w+'</p></div>';
+  if(specs.length) h+='<div class="sec"><h2>핵심 정보</h2>'+specs.map(s=>'<div class="spec"><span>'+esc(s[0])+'</span><b>'+esc(s[1])+'</b></div>').join('')+'</div>';
+  if(ks.length) h+='<div class="sec"><h2>이 현장의 강점</h2>'+ks.map(k=>'<div class="pt">✓ '+esc(k)+'</div>').join('')+'</div>';
+  if(d.e) h+='<div class="sec"><h2>특별 혜택</h2><div class="etc">🎁 '+esc(d.e)+'</div></div>';
+  h+='<div class="cta">'+
+    (tel?'<a class="call" href="tel:'+tel+'">📞 '+esc(d.tel)+' 전화 상담</a>':'')+
+    (d.kk?'<a class="kko" href="'+esc(d.kk)+'">💬 카톡 상담하기</a>':'')+
+    (d.oc?'<a class="opc" href="'+esc(d.oc)+'">🏠 분양 정보 오픈채팅 입장 (무료)</a>':'')+
+  '</div>';
+  h+='<div class="foot">담당: '+esc(d.an||'')+(d.at?' '+esc(d.at):'')+
+    (d.ai?'<br>'+esc(d.ai):'')+'<br><br>※ 본 페이지는 '+w+' 안내 목적이며, 계약 전 반드시 공식 자료를 확인하세요.</div>';
+  document.getElementById('app').innerHTML=h;
+}
+(async()=>{
+  try{
+    if(!location.hash || location.hash.length<10) throw new Error('내용 없음');
+    render(await unpack(location.hash));
+  }catch(e){
+    document.getElementById('app').innerHTML='<div class="err">페이지 정보를 불러올 수 없습니다.<br>링크가 잘렸거나 잘못 전달된 것 같습니다.<br>보내주신 분께 다시 요청해 주세요.</div>';
+  }
+})();
+window.addEventListener('hashchange',()=>location.reload());
+</script>
+</body>
+</html>
